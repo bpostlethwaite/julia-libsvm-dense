@@ -12,7 +12,7 @@
    * a function return in Julia so they don't get eaten by GC
    */
 extern "C"
-struct svm_problem *constructProblem(double *y, int ndata, double *x, int nvals) {
+struct svm_problem *constructProblem(double *y, int ndata, double **x, int nvals) {
   int i, j;
   struct svm_problem *prob;
 
@@ -30,7 +30,7 @@ struct svm_problem *constructProblem(double *y, int ndata, double *x, int nvals)
     prob->y[i] = y[i];
 
     for ( j=0; j < nvals; j++ ) {
-      (prob->x+i)->values[j] = x[i*nvals + j];
+      (prob->x+i)->values[j] = x[i][j];
     }
   }
 
@@ -71,13 +71,13 @@ void printProblem(struct svm_problem *prob) {
 }
 
 extern "C"
-void get2darray(double *x, int n, int m) {
+void get2darray(double **x, int n, int m) {
 
   int i, j;
 
   for (i = 0; i < n; i++) {
     for (j = 0; j < m; j++) {
-      printf("%2.2f ", x[i]);
+      printf("%2.2f ", x[i][j]);
     }
     printf("\n");
   }
