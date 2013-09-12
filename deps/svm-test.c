@@ -22,7 +22,7 @@ struct svm_problem *constructProblem(double *y, int ndata, double *x, int nvals)
   prob->y = Malloc(double, prob->l);
   prob->x = Malloc(struct svm_node, prob->l);
 
-  for(i=0; i < prob->l; i++) {
+  for(i=0; i < ndata; i++) {
 
     (prob->x+i)->values = Malloc(double, nvals);
     (prob->x+i)->dim = nvals;
@@ -30,7 +30,7 @@ struct svm_problem *constructProblem(double *y, int ndata, double *x, int nvals)
     prob->y[i] = y[i];
 
     for ( j=0; j < nvals; j++ ) {
-      (prob->x+i)->values[j] = x[j];
+      (prob->x+i)->values[j] = x[i*nvals + j];
     }
   }
 
@@ -71,13 +71,13 @@ void printProblem(struct svm_problem *prob) {
 }
 
 extern "C"
-void get2darray(double **x, int n, int m) {
+void get2darray(double *x, int n, int m) {
 
   int i, j;
 
   for (i = 0; i < n; i++) {
     for (j = 0; j < m; j++) {
-      printf("%2.2f ", x[n][m]);
+      printf("%2.2f ", x[i]);
     }
     printf("\n");
   }

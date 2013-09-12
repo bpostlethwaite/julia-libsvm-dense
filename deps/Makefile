@@ -30,4 +30,4 @@ svm-test.o: svm-test.c svm.o
 svm.o: svm.cpp svm.h
 	$(CXX) $(CFLAGS) -c svm.cpp
 clean:
-	rm -f *~ svm.o svm-test.o libsvm.so.$(SHVER)
+	rm -f *~ svm.o svm-test.o libsvm*
