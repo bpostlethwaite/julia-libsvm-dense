@@ -1,12 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
-
 #include "svm.h"
 
 #define Malloc(type,n) (type *)malloc((n)*sizeof(type))
 
 //struct svm_parameter param;		// set by parse_command_line
-
 //struct svm_model *model;
 
 // struct svm_problem
@@ -23,7 +21,7 @@
 // };
 
 //ccall(:foo, Void, (Int32, Ptr{Ptr{Uint8}}), length(argv), argv)
-
+extern "C"
 struct svm_problem *constructProblem(double *y, int ndata, double *x, int nvals) {
 
   int i, j;
@@ -38,7 +36,7 @@ struct svm_problem *constructProblem(double *y, int ndata, double *x, int nvals)
   for(i=0; i < prob->l; i++) {
 
     (prob->x+i)->values = Malloc(double, nvals);
-    (prob->x+i)->dim = 0;
+    (prob->x+i)->dim = nvals;
 
     prob->y[i] = y[i];
 
@@ -47,56 +45,24 @@ struct svm_problem *constructProblem(double *y, int ndata, double *x, int nvals)
     }
   }
 
+
   return prob;
 
 }
 
-int main() {
+extern "C"
+void printProblem(struct svm_problem *prob) {
 
-
-  int ndata = 1;
-  int nvals = 5;
   int i, j;
-  double *y;
-  double *x;
-  struct svm_problem *prob;
 
-  y = Malloc(double, ndata);
-  x = Malloc(double, nvals);
-  /*
-   * Construct Synthetic Classes
-   */
-  for (i = 0; i < ndata; i++) {
-    y[i] = i % 2;
-  }
-
-  for (i = 0; i < nvals; i++) {
-    x[i] = (double) i * 2.4;
-  }
-
-  prob = constructProblem(y, ndata, x, nvals );
-
-
-  for (i = 0; i < ndata; i++) {
+  for (i = 0; i < prob->l; i++) {
     printf("---- node %i ----\n", i);
-    for (j = 0; j < nvals; j++) {
+    for (j = 0; j < (prob->x[i]).dim; j++) {
       printf("%2.2f ", prob->x[i].values[j]);
     }
     printf("\n");
   }
 
-  /*
-   * Free Memory
-   */
-
-  free(x);
-  free(y);
-  free(prob->y);
-  for (int i = 0; i < prob->l; ++i)
-    free((prob->x+i)->values);
-
-  free(prob->x);
-
-  return 0;
 }
+
 
