@@ -7,9 +7,11 @@
 extern "C" {
 #endif
 
-struct svm_problem *constructProblem(double *y, int ndata, double *x, int nvals);
+  struct svm_problem *constructProblem(double *y, int ndata, double *x, int nvals);
 
-void printProblem(struct svm_problem *prob);
+  void freeProblem(struct svm_problem *prob);
+
+  void printProblem(struct svm_problem *prob);
 
 
 #ifdef __cplusplus

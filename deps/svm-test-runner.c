@@ -28,23 +28,17 @@ int main() {
   }
 
   for (i = 0; i < nvals; i++) {
-    x[i] = (double) i * 2.4;
+    x[i] = (double) i * 1.42;
   }
 
   prob = constructProblem(y, ndata, x, nvals );
 
   printProblem(prob);
 
-  /*
-   * Free Memory
-   */
   free(x);
   free(y);
-  free(prob->y);
-  for (int i = 0; i < prob->l; ++i)
-    free((prob->x+i)->values);
 
-  free(prob->x);
+  freeProblem(prob);
 
   return 0;
 }

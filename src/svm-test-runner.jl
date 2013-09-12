@@ -6,8 +6,8 @@
 ndata = int32(1)
 nvals = int32(5)
 
-Y = float64([i % 2 for i = 1 : ndata])
-X = float64([i * 1.42 for i = 1 : nvals])
+Y = float64([i % 2 for i = 0 : ndata-1])
+X = float64([i * 1.42 for i = 0 : nvals-1])
 
 prob = ccall( (:constructProblem, "../deps/libsvm-test.so"), Ptr{Void},
              (Ptr{Float64}, Int32, Ptr{Float64}, Int32),
@@ -16,7 +16,24 @@ prob = ccall( (:constructProblem, "../deps/libsvm-test.so"), Ptr{Void},
 ccall( (:printProblem, "../deps/libsvm-test.so"), Void,
       (Ptr{Void},), prob)
 
+ccall( (:freeProblem, "../deps/libsvm-test.so"), Void,
+      (Ptr{Void},), prob)
 
+n = 2
+m = 2
+
+x = Any[rand(1,m), rand(1,m)]
+
+# for i = 1:n
+#   x[i, :] = rand( 1, m)
+# end
+
+println(typeof(x))
+println(eltype(x))
+
+ccall((:get2darray, "../deps/libsvm-test.so"), Void,
+      ( Ptr{Float64}, Int32, Int32),
+      x, int32(n), int32(m))
 
 #@assert total == sum(X)
 

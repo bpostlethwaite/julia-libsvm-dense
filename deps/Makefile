@@ -3,7 +3,7 @@ CFLAGS = -Wall -Wconversion -O3 -fPIC -D _DENSE_REP
 SHVER = 2
 OS = $(shell uname)
 
-all: svm-test-runner
+all: svm-test-runner svm-test
 
 svm: svm.o
 	if [ "$(OS)" = "Darwin" ]; then \
