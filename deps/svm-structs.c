@@ -70,15 +70,24 @@ void printProblem(struct svm_problem *prob) {
 
 }
 
-extern "C"
-void get2darray(double **x, int n, int m) {
-
+struct svm_problem *constructParameters(double *y, int ndata, double **x, int nvals) {
   int i, j;
 
-  for (i = 0; i < n; i++) {
-    for (j = 0; j < m; j++) {
-      printf("%2.2f ", x[i][j]);
-    }
-    printf("\n");
-  }
+  struct svm_parameter *param;
+
+  param.svm_type = C_SVC;
+  param.kernel_type = RBF;
+  param.degree = 3;
+  param.gamma = 0;
+  param.coef0 = 0;
+  param.nu = 0.5;
+  param.cache_size = 100;
+  param.C = 1;
+  param.eps = 1e-3;
+  param.p = 0.1;
+  param.shrinking = 1;
+  param.probability = 0;
+  param.nr_weight = 0;
+  param.weight_label = NULL;
+  param.weight = NULL;
 }

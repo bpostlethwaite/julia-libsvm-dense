@@ -1,5 +1,5 @@
-#ifndef SVMTEST_H
-#define SVMTEST_H
+#ifndef SVMSTRUCTS_H
+#define SVMSTRUCTS_H
 
 #include "svm.h"
 

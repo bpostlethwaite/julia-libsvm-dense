@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 #include "svm.h"
-#include "svm-test.h"
+#include "svm-structs.h"
 
 #define Malloc(type,n) (type *)malloc((n)*sizeof(type))
 
