@@ -70,24 +70,57 @@ void printProblem(struct svm_problem *prob) {
 
 }
 
-struct svm_problem *constructParameters(double *y, int ndata, double **x, int nvals) {
-  int i, j;
+extern "C"
+struct svm_parameter *constructParameter(int *ints, double *floats) {
 
   struct svm_parameter *param;
 
-  param.svm_type = C_SVC;
-  param.kernel_type = RBF;
-  param.degree = 3;
-  param.gamma = 0;
-  param.coef0 = 0;
-  param.nu = 0.5;
-  param.cache_size = 100;
-  param.C = 1;
-  param.eps = 1e-3;
-  param.p = 0.1;
-  param.shrinking = 1;
-  param.probability = 0;
-  param.nr_weight = 0;
-  param.weight_label = NULL;
-  param.weight = NULL;
+  param = Malloc(struct svm_parameter, 1);
+
+  param->svm_type = ints[0];
+  param->kernel_type = ints[1];
+  param->degree = ints[2];
+  param->nr_weight = ints[3];
+  param->shrinking = ints[4];
+  param->probability = ints[5];
+
+  param->gamma = floats[0];
+  param->coef0 = floats[1];
+  param->cache_size = floats[2];
+  param->eps = floats[3];
+  param->C = floats[4];
+  param->nu = floats[5];
+  param->p = floats[6];
+
+  param->weight_label = NULL;
+  param->weight = NULL;
+
+  return param;
+
+}
+
+
+extern "C"
+void printParameter(struct svm_parameter *param) {
+
+
+  printf("svm_type     %i\n", param->svm_type);
+  printf("kernel type  %i\n", param->kernel_type);
+  printf("degree       %i\n", param->degree);
+  printf("nr_weight    %i\n", param->nr_weight);
+  printf("shrinking    %i\n", param->shrinking);
+  printf("probability  %i\n", param->probability);
+
+  printf("gamma        %2.2f\n",  param->gamma);
+  printf("coef0        %2.2f\n",  param->coef0);
+  printf("cache_size   %2.2f\n",  param->cache_size);
+  printf("eps          %2.2e\n",  param->eps);
+  printf("C            %2.2f\n",  param->C);
+  printf("nu           %2.2f\n",  param->nu);
+  printf("p            %2.2f\n",  param->p);
+
+  printf("weight label %p\n", param->weight_label);
+  printf("weight       %p\n", param->weight);
+
+
 }

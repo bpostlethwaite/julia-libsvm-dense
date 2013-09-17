@@ -1,17 +1,16 @@
 CXX ?= g++
 CFLAGS = -Wall -Wconversion -O3 -fPIC -D _DENSE_REP
-SHVER = 2
 OS = $(shell uname)
 
-all: svm-test-runner svm-structs
+all: svm-test-runner svm-structs svm
 
 svm: svm.o
 	if [ "$(OS)" = "Darwin" ]; then \
-		SHARED_LIB_FLAG="-dynamiclib -Wl,-install_name,libsvm.so.$(SHVER)"; \
+		SHARED_LIB_FLAG="-dynamiclib -Wl,-install_name,libsvm.so"; \
 	else \
-		SHARED_LIB_FLAG="-shared -Wl,-soname,libsvm.so.$(SHVER)"; \
+		SHARED_LIB_FLAG="-shared -Wl,-soname,libsvm.so"; \
 	fi; \
-	$(CXX) $${SHARED_LIB_FLAG} svm.o -o libsvm.so.$(SHVER)
+	$(CXX) $${SHARED_LIB_FLAG} svm.o -o libsvm.so
 
 svm-structs: svm-structs.o
 	if [ "$(OS)" = "Darwin" ]; then \

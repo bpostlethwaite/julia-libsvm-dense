@@ -13,8 +13,8 @@ export
 
 # functions
     init_struct!,
-    free_struct!
-
+    free_struct!,
+    readdlm
 
 
 
@@ -40,7 +40,7 @@ end
 
 ##### SVMNODE
 type SVMnode
-	dim::Int32
+	dim::Cint
 	values::Vector{Float64}
 end
 
@@ -55,7 +55,7 @@ SVMnode(dim::Int64, x::Vector) = SVMnode(int32(dim), x)
 
 ##### SVMPROBLEM
 type SVMproblem
-	l::Int32
+	l::Cint
 	y::Vector{Float64}
 	x::Array{SVMnode, 1}
   cpointer::Union(Bool, Ptr{Void}) # This is a stop-gap until we get struct passing support in Julia
@@ -72,9 +72,9 @@ SVMproblem(l::Int64, y::Vector, x::Array{SVMnode}) = SVMproblem(int32(l), y::Vec
 
 ##### SVMPARAMETER
 type SVMparameter
-	svm_type::Int32     #
-	kernel_type::Int32  #
-	degree::Int32	      # for poly
+	svm_type::Cint     #
+	kernel_type::Cint  #
+	degree::Cint	      # for poly
 	gamma::Float64	    # for poly/rbf/sigmoid
 	coef0::Float64	    # for poly/sigmoid
 
@@ -82,13 +82,13 @@ type SVMparameter
 	cache_size::Float64 # in MB
 	eps::Float64	      # stopping criteria
 	C::Float64	        # for C_SVC, EPSILON_SVR and NU_SVR
-	nr_weight::Int32		# for C_SVC
-	weight_label::Union(Array{Int32, 1}, Ptr{Void}) # for C_SVC
+	nr_weight::Cint		# for C_SVC
+	weight_label::Union(Array{Cint, 1}, Ptr{Void}) # for C_SVC
 	weight::Union(Vector{Float64}, Ptr{Void}) # for C_SVC
 	nu::Float64	        # for NU_SVC, ONE_CLASS, and NU_SVR
 	p::Float64	        # for EPSILON_SVR
-	shrinking::Int32	  # use the shrinking heuristics
-	probability::Int32  # do probability estimates
+	shrinking::Cint	  # use the shrinking heuristics
+	probability::Cint  # do probability estimates
   cpointer::Union(Bool, Ptr{Void}) # struct-less Julia stop-gap
 end
 
@@ -116,7 +116,7 @@ SVMparameter() = SVMparameter(C_SVC,    # svm type
 
 
 
-##### FUNCTIONS
+##### STRUCT FUNCTIONS
 
 function init_struct!(prob::SVMproblem)
 
@@ -127,7 +127,7 @@ function init_struct!(prob::SVMproblem)
     end
 
     point = ccall( (:constructProblem, "../deps/libsvm-structs.so"), Ptr{Void},
-                  (Ptr{Float64}, Int32, Ptr{Ptr{Float64}}, Int32),
+                  (Ptr{Float64}, Cint, Ptr{Ptr{Float64}}, Cint),
                   prob.y, prob.l, a, prob.x[1].dim)
 
     prob.cpointer = point
@@ -135,6 +135,33 @@ function init_struct!(prob::SVMproblem)
 
 end
 
+function init_struct!(param::SVMparameter)
+
+  if param.cpointer == false
+    ints = Array(Cint, 6)
+    ints[1] = param.svm_type
+    ints[2] = param.kernel_type
+    ints[3] = param.degree
+    ints[4] = param.nr_weight
+    ints[5] = param.shrinking
+    ints[6] = param.probability
+
+    floats = Array(Float64, 7)
+    floats[1] = param.gamma
+    floats[2] = param.coef0
+    floats[3] = param.cache_size
+    floats[4] = param.eps
+    floats[5] = param.C
+    floats[6] = param.nu
+    floats[7] = param.p
+
+    point = ccall( (:constructParameter, "../deps/libsvm-structs.so"), Ptr{Void},
+                  (Ptr{Cint}, Ptr{Float64}), ints, floats)
+
+    param.cpointer = point
+  end
+
+end
 
 function free_struct!(prob::SVMproblem)
   if typeof(prob.cpointer) != false
@@ -144,6 +171,45 @@ function free_struct!(prob::SVMproblem)
   end
 end
 
+
+function free_struct!(param::SVMparameter)
+  if typeof(param.cpointer) != false
+    ccall( (:svm_destroy_param, "../deps/libsvm.so"), Void,
+          (Ptr{Void},), param.cpointer)
+    param.cpointer = false
+  end
+end
+
+#### I/O FUNCTIONS
+
+
+#<label> <index1>:<value1> <index2>:<value2> ...
+function readdlm(source, SVMproblem)
+
+  fstream = open(source, "r")
+  chunk = readall(fstream)
+  lines = split(strip(chunk), "\n")
+  ndata = length(lines)
+
+  y = Array(Float64, ndata)
+  x = Array(SVMnode, ndata)
+
+  for i = 1:ndata
+    fields = split(strip(lines[i]), " ")
+    y[i] = float64(fields[1])
+    println(y[i])
+    for field in fields[2:end]
+      ivals = split(field, ":")
+#      println(ivals)
+    end
+  end
+
+
+
+
+  prob = SVMproblem
+
+end
 
 
 end #module
