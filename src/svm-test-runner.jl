@@ -47,4 +47,11 @@ end
 
 
 
-readdlm("heart_scale", SVMparameter)
+prob = readdlm("heart_scale", SVMproblem)
+
+init_struct!(prob)
+
+ccall( (:printProblem, "../deps/libsvm-structs.so"), Void,
+       (Ptr{Void},), prob.cpointer)
+
+free_struct!(prob)

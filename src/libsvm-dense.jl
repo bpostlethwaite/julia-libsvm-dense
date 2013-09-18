@@ -182,32 +182,58 @@ end
 
 #### I/O FUNCTIONS
 
-
-#<label> <index1>:<value1> <index2>:<value2> ...
 function readdlm(source, SVMproblem)
 
   fstream = open(source, "r")
   chunk = readall(fstream)
+  close(fstream)
+
   lines = split(strip(chunk), "\n")
+
+  # Strip out short lines
+  ll = map((x) -> length(x) > 4, lines)
+  lines = lines[ll]
+
   ndata = length(lines)
+
+  temp = cell(ndata)
 
   y = Array(Float64, ndata)
   x = Array(SVMnode, ndata)
 
+  # First we need to get the max index from all the rows
+  # May as well save some of the parsed text
+  maxIndex = 0
   for i = 1:ndata
     fields = split(strip(lines[i]), " ")
     y[i] = float64(fields[1])
-    println(y[i])
-    for field in fields[2:end]
-      ivals = split(field, ":")
-#      println(ivals)
-    end
+    fields = map( (x) -> split(x, ":"), fields[2:end])
+    temp[i] = map( (x) -> (int64(x[1]), float64(x[2])), fields)
+    maxIndex = max(temp[i][end][1], maxIndex)
   end
 
+  # Now lets loop through the saved text and fill
+  # in the right values for the given indexes
+  # and assign to SVMnode
+  for i = 1:ndata
+    data = zeros(Float64, maxIndex)
+    inds = map( (x) -> x[1], temp[i] )
+    vals = map( (x) -> x[2], temp[i] )
+    data[inds] = vals
+    x[i] = SVMnode(maxIndex, data)
+  end
+
+  prob = SVMproblem(ndata, y, x)
 
 
+end
 
-  prob = SVMproblem
+
+function writedlm(source, SVMproblem)
+
+  fstream = open(source, "w")
+
+  close(fstream)
 
 end
 

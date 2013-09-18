@@ -34,7 +34,6 @@ struct svm_problem *constructProblem(double *y, int ndata, double **x, int nvals
     }
   }
 
-
   return prob;
 
 }
@@ -54,18 +53,21 @@ extern "C"
 void printProblem(struct svm_problem *prob) {
 
   int i, j;
+  int dim = prob->x[i].dim;
+
+  printf("\n\n%i\n", prob->l);
 
   for (i = 0; i < prob->l; i++) {
     printf("---- node %i ----\n", i);
 
     printf("%1.0f :: ", prob->y[i]);
-
-    for (j = 0; j < (prob->x[i]).dim; j++) {
+    /* printf("%2.2f ", prob->x[i].values[1]); */
+    /* printf("%i", prob->x[i].dim); */
+    for (j = 0; j < dim; j++) {
       printf("%2.2f ", prob->x[i].values[j]);
     }
 
     printf("\n");
-
   }
 
 }
