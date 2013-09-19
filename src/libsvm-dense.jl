@@ -11,6 +11,7 @@ export
     C_SVC, NU_SVC, ONE_CLASS, EPSILON_SVR, NU_SVR,
     LINEAR, POLY, RBF, SIGMOID, PRECOMPUTED,
 
+
 # functions
     init_struct!,
     free_struct!,
@@ -36,9 +37,8 @@ end
 
 
 
+####################### TYPES #############################
 
-
-##### SVMNODE
 type SVMnode
 	dim::Cint
 	values::Vector{Float64}
@@ -52,8 +52,6 @@ SVMnode(dim::Int64, x::Vector) = SVMnode(int32(dim), x)
 
 
 
-
-##### SVMPROBLEM
 type SVMproblem
 	l::Cint
 	y::Vector{Float64}
@@ -69,8 +67,6 @@ SVMproblem(l::Int64, y::Vector, x::Array{SVMnode}) = SVMproblem(int32(l), y::Vec
 
 
 
-
-##### SVMPARAMETER
 type SVMparameter
 	svm_type::Cint     #
 	kernel_type::Cint  #
@@ -109,14 +105,18 @@ SVMparameter() = SVMparameter(C_SVC,    # svm type
                               0.1,      # p
                               int32(0), # shrinking
                               int32(0), # probability
-                              false     # Until structs are passable
-                              )
+                              false)     # Until structs are passable
 
 
+# Right now just the minimum.
+# Eventually pull functionality into Julia
+type SVMmodel
+  cpointer::Union(Bool, Ptr{Void})
+end
 
+SVMmodel() = SVMmodel(false)
 
-
-##### STRUCT FUNCTIONS
+####################### C STRUCT HANDLERS #############################
 
 function init_struct!(prob::SVMproblem)
 
@@ -134,6 +134,7 @@ function init_struct!(prob::SVMproblem)
   end
 
 end
+
 
 function init_struct!(param::SVMparameter)
 
@@ -163,8 +164,11 @@ function init_struct!(param::SVMparameter)
 
 end
 
+
+
+
 function free_struct!(prob::SVMproblem)
-  if typeof(prob.cpointer) != false
+  if prob.cpointer != false
     ccall( (:freeProblem, "../deps/libsvm-structs.so"), Void,
           (Ptr{Void},), prob.cpointer)
     prob.cpointer = false
@@ -172,15 +176,61 @@ function free_struct!(prob::SVMproblem)
 end
 
 
+
+
+
 function free_struct!(param::SVMparameter)
-  if typeof(param.cpointer) != false
+  if param.cpointer != false
     ccall( (:svm_destroy_param, "../deps/libsvm.so"), Void,
           (Ptr{Void},), param.cpointer)
     param.cpointer = false
   end
 end
 
-#### I/O FUNCTIONS
+
+####################### LIBSVM WRAPPERS  #############################
+
+# struct svm_model *svm_train(const struct svm_problem *prob, const struct svm_parameter *param);
+# void svm_cross_validation(const struct svm_problem *prob, const struct svm_parameter *param, int nr_fold, double *target);
+
+# int svm_save_model(const char *model_file_name, const struct svm_model *model);
+# struct svm_model *svm_load_model(const char *model_file_name);
+
+# int svm_get_svm_type(const struct svm_model *model);
+# int svm_get_nr_class(const struct svm_model *model);
+# void svm_get_labels(const struct svm_model *model, int *label);
+# void svm_get_sv_indices(const struct svm_model *model, int *sv_indices);
+# int svm_get_nr_sv(const struct svm_model *model);
+# double svm_get_svr_probability(const struct svm_model *model);
+
+# double svm_predict_values(const struct svm_model *model, const struct svm_node *x, double* dec_values);
+# double svm_predict(const struct svm_model *model, const struct svm_node *x);
+# double svm_predict_probability(const struct svm_model *model, const struct svm_node *x, double* prob_estimates);
+
+# void svm_free_model_content(struct svm_model *model_ptr);
+# void svm_free_and_destroy_model(struct svm_model **model_ptr_ptr);
+# void svm_destroy_param(struct svm_parameter *param);
+
+# const char *svm_check_parameter(const struct svm_problem *prob, const struct svm_parameter *param);
+# int svm_check_probability_model(const struct svm_model *model);
+
+# void svm_set_print_string_function(void (*print_func)(const char *));
+
+function svmTrain(prob::SVMproblem, param::SVMparameter)
+
+    model = SVMmodel()
+
+    point = ccall( (:svm_train, "../deps/libsvm.so"), Ptr{Void},
+                  (Ptr{Void},), param.cpointer)
+
+    model.cpointer = point
+
+    return model
+
+end
+
+####################### IO FUNCTIONS #############################
+
 
 function readdlm(source, SVMproblem)
 
@@ -229,6 +279,12 @@ function readdlm(source, SVMproblem)
 end
 
 
+
+
+
+
+
+
 function writedlm(source, SVMproblem)
 
   fstream = open(source, "w")
@@ -236,6 +292,9 @@ function writedlm(source, SVMproblem)
   close(fstream)
 
 end
+
+
+
 
 
 end #module

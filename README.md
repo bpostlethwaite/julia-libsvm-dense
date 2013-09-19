@@ -7,7 +7,7 @@ Bindings for Julia lib-svm with the intent to move as much functionality into th
 2. construct svm_problem structs in C. Pass comfortably between interfaces   [COMPLETE]
 3. construct svm_parameter struct in C. Pass comfortably between interfaces  [COMPLETE]
 4. implement wrappers around ccall struct constructors                       [COMPLETE]
-5. implement Julia reader/writer for LIBSVM datasets for testing purposes
+5. implement Julia reader/writer for LIBSVM datasets for testing purposes    [READER COMPLETE]
 6. implement wrappers around LIBSVM training and prediction functions
 7. implement wrappers around the get_model_param functions
 8. test functionality on test data, compare to command line LIBSVM

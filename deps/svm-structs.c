@@ -2,6 +2,11 @@
 #include <stdio.h>
 #include "svm.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #define Malloc(type,n) (type *)malloc((n)*sizeof(type))
 
   /*
@@ -11,7 +16,6 @@
    * of structs in an array while they are in C, on say
    * a function return in Julia so they don't get eaten by GC
    */
-extern "C"
 struct svm_problem *constructProblem(double *y, int ndata, double **x, int nvals) {
   int i, j;
   struct svm_problem *prob;
@@ -38,7 +42,6 @@ struct svm_problem *constructProblem(double *y, int ndata, double **x, int nvals
 
 }
 
-extern "C"
 void freeProblem(struct svm_problem *prob) {
   int i;
   free(prob->y);
@@ -49,11 +52,10 @@ void freeProblem(struct svm_problem *prob) {
 
 }
 
-extern "C"
 void printProblem(struct svm_problem *prob) {
 
   int i, j;
-  int dim = prob->x[i].dim;
+  int dim = prob->x[1].dim;
 
   printf("\n\n%i\n", prob->l);
 
@@ -72,7 +74,6 @@ void printProblem(struct svm_problem *prob) {
 
 }
 
-extern "C"
 struct svm_parameter *constructParameter(int *ints, double *floats) {
 
   struct svm_parameter *param;
@@ -102,7 +103,6 @@ struct svm_parameter *constructParameter(int *ints, double *floats) {
 }
 
 
-extern "C"
 void printParameter(struct svm_parameter *param) {
 
 
@@ -126,3 +126,7 @@ void printParameter(struct svm_parameter *param) {
 
 
 }
+
+#ifdef __cplusplus
+}
+#endif
