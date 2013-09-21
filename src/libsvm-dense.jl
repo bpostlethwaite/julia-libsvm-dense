@@ -15,8 +15,10 @@ export
 # functions
     init_struct!,
     free_struct!,
-    readdlm
-
+    readdlm,
+    svmTrain,
+    saveModel,
+    freeAndDestroyModel
 
 
 
@@ -177,8 +179,6 @@ end
 
 
 
-
-
 function free_struct!(param::SVMparameter)
   if param.cpointer != false
     ccall( (:svm_destroy_param, "../deps/libsvm.so"), Void,
@@ -190,7 +190,7 @@ end
 
 ####################### LIBSVM WRAPPERS  #############################
 
-# struct svm_model *svm_train(const struct svm_problem *prob, const struct svm_parameter *param);
+# [DONE] struct svm_model *svm_train(const struct svm_problem *prob, const struct svm_parameter *param);
 # void svm_cross_validation(const struct svm_problem *prob, const struct svm_parameter *param, int nr_fold, double *target);
 
 # int svm_save_model(const char *model_file_name, const struct svm_model *model);
@@ -227,6 +227,29 @@ function svmTrain(prob::SVMproblem, param::SVMparameter)
 
     return model
 
+end
+
+function saveModel(fname::ASCIIString, model::SVMmodel)
+
+  # Return true on success and false on failure
+  fp = convert(Ptr{Uint8}, fname)
+  err = ccall( (:svm_save_model, "../deps/libsvm.so"), Cint,
+              (Ptr{Uint8}, Ptr{Void}),
+              fp, model.cpointer)
+
+  return (err == 0) ? true : false
+
+end
+
+function freeAndDestroyModel(model::SVMmodel)
+
+  if model.cpointer != false
+    A = Array(Ptr{Void}, 1)
+    A[1] = model.cpointer
+    ccall( (:svm_free_and_destroy_model, "../deps/libsvm.so"), Ptr{Void},
+          (Ptr{Ptr{Void}},), A)
+    model.cpointer = false
+  end
 end
 
 ####################### IO FUNCTIONS #############################
