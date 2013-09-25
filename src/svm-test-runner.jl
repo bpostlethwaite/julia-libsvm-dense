@@ -51,14 +51,28 @@ prob = readdlm("heart_scale", SVMproblem)
 init_struct!(prob)
 
 param = SVMparameter()
+println(prob.x[1].dim)
+param.gamma = 1.0/(prob.x[1].dim)
 init_struct!(param)
 
-model = svmTrain(prob, param)
+err = svm_check_parameter(prob, param)
 
-err = saveModel("savedModel", model)
+# ccall( (:printProblem, "../deps/libsvm-structs.so"), Void,
+#       (Ptr{Void},), prob.cpointer)
 
-println(err)
+
+if err
+  println(err)
+end
+
+model = svm_train(prob, param)
+
+err = svm_save_model("savedModel", model)
+
+if err
+  println(err)
+end
 
 free_struct!(prob)
 free_struct!(param)
-freeAndDestroyModel(model)
+svm_free_and_destroy_model!(model)

@@ -8,3 +8,4 @@
 *.so*
 
 bin/*
+libsvm-dense-3.17/*

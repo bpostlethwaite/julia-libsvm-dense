@@ -18,3 +18,5 @@ Bindings for Julia lib-svm with the intent to move as much functionality into th
 
 
 ## Notes
+- Changed svm-train.c so that it reads in INDEX-1 as array position.
+- Changed svm.cpp `svm_save_model` function in the coefficient printing so it prints j+1 (in the IFDEF DENSE_REP section).

@@ -16,10 +16,10 @@ export
     init_struct!,
     free_struct!,
     readdlm,
-    svmTrain,
-    saveModel,
-    freeAndDestroyModel
-
+    svm_train,
+    svm_save_model,
+    svm_free_and_destroy_model!,
+    svm_check_parameter
 
 
 ##### BUILD CONSTANTS
@@ -108,6 +108,8 @@ SVMparameter() = SVMparameter(C_SVC,    # svm type
                               int32(0), # shrinking
                               int32(0), # probability
                               false)     # Until structs are passable
+
+
 
 
 # Right now just the minimum.
@@ -216,12 +218,12 @@ end
 
 # void svm_set_print_string_function(void (*print_func)(const char *));
 
-function svmTrain(prob::SVMproblem, param::SVMparameter)
+function svm_train(prob::SVMproblem, param::SVMparameter)
 
     model = SVMmodel()
 
     point = ccall( (:svm_train, "../deps/libsvm.so"), Ptr{Void},
-                  (Ptr{Void},), param.cpointer)
+                  (Ptr{Void}, Ptr{Void}), prob.cpointer, param.cpointer)
 
     model.cpointer = point
 
@@ -229,7 +231,7 @@ function svmTrain(prob::SVMproblem, param::SVMparameter)
 
 end
 
-function saveModel(fname::ASCIIString, model::SVMmodel)
+function svm_save_model(fname::ASCIIString, model::SVMmodel)
 
   # Return true on success and false on failure
   fp = convert(Ptr{Uint8}, fname)
@@ -237,11 +239,11 @@ function saveModel(fname::ASCIIString, model::SVMmodel)
               (Ptr{Uint8}, Ptr{Void}),
               fp, model.cpointer)
 
-  return (err == 0) ? true : false
+  return (err == 0) ? false : true
 
 end
 
-function freeAndDestroyModel(model::SVMmodel)
+function svm_free_and_destroy_model!(model::SVMmodel)
 
   if model.cpointer != false
     A = Array(Ptr{Void}, 1)
@@ -250,6 +252,22 @@ function freeAndDestroyModel(model::SVMmodel)
           (Ptr{Ptr{Void}},), A)
     model.cpointer = false
   end
+end
+
+function svm_check_parameter(prob::SVMproblem, param::SVMparameter)
+  # This function is "type-unstable" but who cares, its not hot
+  val = ccall( (:svm_check_parameter, "../deps/libsvm.so"), Ptr{Uint8},
+              (Ptr{Void}, Ptr{Void}), prob.cpointer, param.cpointer)
+
+  # function returns NULL if correct, otherwise returns an error
+  if val != C_NULL
+    error = bytestring(val)
+  else
+    error = false
+  end
+
+  return error
+
 end
 
 ####################### IO FUNCTIONS #############################
@@ -285,12 +303,15 @@ function readdlm(source, SVMproblem)
     maxIndex = max(temp[i][end][1], maxIndex)
   end
 
+  #maxIndex += 1 # Accounting for zero based C
+
   # Now lets loop through the saved text and fill
   # in the right values for the given indexes
   # and assign to SVMnode
   for i = 1:ndata
     data = zeros(Float64, maxIndex)
     inds = map( (x) -> x[1], temp[i] )
+    #inds += 1
     vals = map( (x) -> x[2], temp[i] )
     data[inds] = vals
     x[i] = SVMnode(maxIndex, data)
