@@ -294,20 +294,13 @@ function svm_check_parameter(prob::SVMproblem, param::SVMparameter)
 end
 
 ####################### OPTIMIZATION #############################
-
-function cross_validation_gridsearch(probt::SVMproblem,
-                                     paramt::SVMparameter,
-                                     nr_fold::Int,
+function cross_validation_gridsearch(nr_fold::Int,
                                      cRange::Vector{Float64},
                                      gRange::Vector{Float64})
 
 # Perform Multi-scale Gridsearch over CRange and gammaRange using cross-validation
 
   nr_fold = convert(Cint, nr_fold)
-
-  # Free if already assigned memory in C
-  free_struct!(probt)
-  free_struct!(paramt)
 
   agrid = Array(Float64, length(cRange), length(gRange))
 
@@ -348,17 +341,18 @@ function cross_validation_gridsearch(probt::SVMproblem,
   return agrid
 end
 
-function gridsearch(cRange, gRange, probt, paramt, nr_fold)
+function gridsearch(cRange, gRange, nr_fold)
 
   pgrid = Array(Float64, length(cRange), length(gRange))
 
   for (ic, c) in enumerate(cRange)
     for (ig, g) in enumerate(gRange)
 
-      prob = deepcopy(probt)
+
+      prob = readdlm("heart_scale", SVMproblem)
       init_struct!(prob)
 
-      param = deepcopy(paramt)
+      param = SVMparameter()
       param.C = c
       param.gamma = g
       init_struct!(param)
@@ -382,6 +376,7 @@ function gridsearch(cRange, gRange, probt, paramt, nr_fold)
   return pgrid
 
 end
+
 
 ####################### IO FUNCTIONS #############################
 

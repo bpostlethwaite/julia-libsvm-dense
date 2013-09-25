@@ -49,14 +49,16 @@ end
 # ccall( (:printProblem, "../deps/libsvm-structs.so"), Void,
 #       (Ptr{Void},), prob.cpointer)
 
-cRange = [2.0^i for i = -9:3]
-gammaRange = [2.0^i for i = -7:5]
+gammaRange = [2.0^i for i = -32:4:6]
+cRange = [2.0^i for i = -4:4:32]
+
+nr_fold = 5
 
 tic()
-agrid = cross_validation_gridsearch(prob, param, 5, cRange, gammaRange)
+agrid = cross_validation_gridsearch(nr_fold, cRange, gammaRange)
 toc()
-imagesc( (cRange[1], cRange[end]),
-         (gammaRange[1], gammaRange[end]),
+imagesc( (gammaRange[1], gammaRange[end]),
+         (cRange[1], cRange[end]),
          agrid)
 
 #@printf("Cross Validation Accuracy = %2.3f%%\n",100.0* total_correct/prob.l);
