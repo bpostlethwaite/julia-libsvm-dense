@@ -19,7 +19,9 @@ export
     svm_train,
     svm_save_model,
     svm_free_and_destroy_model!,
-    svm_check_parameter
+    svm_check_parameter,
+    svm_cross_validation,
+    cross_validation_gridsearch
 
 
 ##### BUILD CONSTANTS
@@ -37,7 +39,14 @@ end
 @enumC C_SVC NU_SVC ONE_CLASS EPSILON_SVR NU_SVR	# svm_type
 @enumC LINEAR POLY RBF SIGMOID PRECOMPUTED # kernel_type
 
+##################### LIBRARIES ###########################
+macro LIBWRAP()
+  return "../deps/libsvm-structs.so"
+end
 
+macro LIBSVM()
+  return "../deps/libsvm.so"
+end
 
 ####################### TYPES #############################
 
@@ -130,7 +139,7 @@ function init_struct!(prob::SVMproblem)
       a[i] = pointer(prob.x[i].values)
     end
 
-    point = ccall( (:constructProblem, "../deps/libsvm-structs.so"), Ptr{Void},
+    point = ccall( (:constructProblem, @LIBWRAP), Ptr{Void},
                   (Ptr{Float64}, Cint, Ptr{Ptr{Float64}}, Cint),
                   prob.y, prob.l, a, prob.x[1].dim)
 
@@ -160,7 +169,7 @@ function init_struct!(param::SVMparameter)
     floats[6] = param.nu
     floats[7] = param.p
 
-    point = ccall( (:constructParameter, "../deps/libsvm-structs.so"), Ptr{Void},
+    point = ccall( (:constructParameter,  @LIBWRAP), Ptr{Void},
                   (Ptr{Cint}, Ptr{Float64}), ints, floats)
 
     param.cpointer = point
@@ -173,7 +182,7 @@ end
 
 function free_struct!(prob::SVMproblem)
   if prob.cpointer != false
-    ccall( (:freeProblem, "../deps/libsvm-structs.so"), Void,
+    ccall( (:freeProblem,  @LIBWRAP), Void,
           (Ptr{Void},), prob.cpointer)
     prob.cpointer = false
   end
@@ -183,7 +192,7 @@ end
 
 function free_struct!(param::SVMparameter)
   if param.cpointer != false
-    ccall( (:svm_destroy_param, "../deps/libsvm.so"), Void,
+    ccall( (:svm_destroy_param, @LIBSVM), Void,
           (Ptr{Void},), param.cpointer)
     param.cpointer = false
   end
@@ -222,7 +231,7 @@ function svm_train(prob::SVMproblem, param::SVMparameter)
 
     model = SVMmodel()
 
-    point = ccall( (:svm_train, "../deps/libsvm.so"), Ptr{Void},
+    point = ccall( (:svm_train, @LIBSVM), Ptr{Void},
                   (Ptr{Void}, Ptr{Void}), prob.cpointer, param.cpointer)
 
     model.cpointer = point
@@ -231,11 +240,25 @@ function svm_train(prob::SVMproblem, param::SVMparameter)
 
 end
 
+function svm_cross_validation(prob::SVMproblem, param::SVMparameter, nr_fold::Cint)
+
+  target = Array(Float64, prob.l)
+
+	ccall( (:svm_cross_validation, @LIBSVM), Void,
+          (Ptr{Void}, Ptr{Void}, Cint, Ptr{Float64}),
+          prob.cpointer, param.cpointer, nr_fold, target)
+
+  return target
+end
+
+svm_cross_validation(x::SVMproblem, y::SVMparameter, nr_fold::Int) = svm_cross_validation(x, y, int32(nr_fold))
+
+
 function svm_save_model(fname::ASCIIString, model::SVMmodel)
 
   # Return true on success and false on failure
   fp = convert(Ptr{Uint8}, fname)
-  err = ccall( (:svm_save_model, "../deps/libsvm.so"), Cint,
+  err = ccall( (:svm_save_model, @LIBSVM), Cint,
               (Ptr{Uint8}, Ptr{Void}),
               fp, model.cpointer)
 
@@ -248,7 +271,7 @@ function svm_free_and_destroy_model!(model::SVMmodel)
   if model.cpointer != false
     A = Array(Ptr{Void}, 1)
     A[1] = model.cpointer
-    ccall( (:svm_free_and_destroy_model, "../deps/libsvm.so"), Ptr{Void},
+    ccall( (:svm_free_and_destroy_model, @LIBSVM), Void,
           (Ptr{Ptr{Void}},), A)
     model.cpointer = false
   end
@@ -256,7 +279,7 @@ end
 
 function svm_check_parameter(prob::SVMproblem, param::SVMparameter)
   # This function is "type-unstable" but who cares, its not hot
-  val = ccall( (:svm_check_parameter, "../deps/libsvm.so"), Ptr{Uint8},
+  val = ccall( (:svm_check_parameter, @LIBSVM), Ptr{Uint8},
               (Ptr{Void}, Ptr{Void}), prob.cpointer, param.cpointer)
 
   # function returns NULL if correct, otherwise returns an error
@@ -267,6 +290,96 @@ function svm_check_parameter(prob::SVMproblem, param::SVMparameter)
   end
 
   return error
+
+end
+
+####################### OPTIMIZATION #############################
+
+function cross_validation_gridsearch(probt::SVMproblem,
+                                     paramt::SVMparameter,
+                                     nr_fold::Int,
+                                     cRange::Vector{Float64},
+                                     gRange::Vector{Float64})
+
+# Perform Multi-scale Gridsearch over CRange and gammaRange using cross-validation
+
+  nr_fold = convert(Cint, nr_fold)
+
+  # Free if already assigned memory in C
+  free_struct!(probt)
+  free_struct!(paramt)
+
+  agrid = Array(Float64, length(cRange), length(gRange))
+
+  np = nprocs()
+
+  refs = Array(Any, np)
+
+  # Break ranges into np chunks, slice up columns (gamma)
+  ng = int(floor(length(gRange) / np))
+  remg = rem(length(gRange), np)
+
+  gi = Array(Int64, np, 2)
+
+  lstg = 1
+
+  # Add the remainder evenly across workers
+  for i = 1:np
+    nxtg = lstg + ng - 1 + (remg > 0 ? 1 : 0)
+    remg -= 1
+    gi[i,:] = [lstg, nxtg]
+    lstg = nxtg + 1
+  end
+
+  println(gi)
+
+  # Perform parallized gridsearch
+  for i = 1:np
+    refs[i] = @spawnat i gridsearch(cRange, gRange[gi[i,1] : gi[i,2]], nr_fold)
+  end
+
+
+  for i = 1:np
+    pgrid = fetch(refs[i])
+    println(typeof(pgrid))
+    agrid[ :, gi[i,1] : gi[i,2] ] = pgrid
+  end
+
+  return agrid
+end
+
+function gridsearch(cRange, gRange, probt, paramt, nr_fold)
+
+  pgrid = Array(Float64, length(cRange), length(gRange))
+
+  for (ic, c) in enumerate(cRange)
+    for (ig, g) in enumerate(gRange)
+
+      prob = deepcopy(probt)
+      init_struct!(prob)
+
+      param = deepcopy(paramt)
+      param.C = c
+      param.gamma = g
+      init_struct!(param)
+
+      target = svm_cross_validation(prob, param, nr_fold)
+
+      total_correct = 0
+      for i=1:prob.l
+	      if target[i] == prob.y[i]
+		      total_correct += 1
+        end
+      end
+
+      pgrid[ic, ig] = 100 * total_correct / prob.l
+
+      free_struct!(prob)
+      free_struct!(param)
+    end
+  end
+
+  return pgrid
 
 end
 
