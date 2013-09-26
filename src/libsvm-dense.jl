@@ -20,8 +20,8 @@ export
     svm_save_model,
     svm_free_and_destroy_model!,
     svm_check_parameter,
-    svm_cross_validation,
-    cross_validation_gridsearch
+    svm_cross_validation
+
 
 
 ##### BUILD CONSTANTS
@@ -293,89 +293,9 @@ function svm_check_parameter(prob::SVMproblem, param::SVMparameter)
 
 end
 
+
 ####################### OPTIMIZATION #############################
-function cross_validation_gridsearch(nr_fold::Int,
-                                     cRange::Vector{Float64},
-                                     gRange::Vector{Float64})
 
-# Perform Multi-scale Gridsearch over CRange and gammaRange using cross-validation
-
-  nr_fold = convert(Cint, nr_fold)
-
-  agrid = Array(Float64, length(cRange), length(gRange))
-
-  np = nprocs()
-
-  refs = Array(Any, np)
-
-  # Break ranges into np chunks, slice up columns (gamma)
-  ng = int(floor(length(gRange) / np))
-  remg = rem(length(gRange), np)
-
-  gi = Array(Int64, np, 2)
-
-  lstg = 1
-
-  # Add the remainder evenly across workers
-  for i = 1:np
-    nxtg = lstg + ng - 1 + (remg > 0 ? 1 : 0)
-    remg -= 1
-    gi[i,:] = [lstg, nxtg]
-    lstg = nxtg + 1
-  end
-
-  println(gi)
-
-  # Perform parallized gridsearch
-  for i = 1:np
-    refs[i] = @spawnat i gridsearch(cRange, gRange[gi[i,1] : gi[i,2]], nr_fold)
-  end
-
-
-  for i = 1:np
-    pgrid = fetch(refs[i])
-    println(typeof(pgrid))
-    agrid[ :, gi[i,1] : gi[i,2] ] = pgrid
-  end
-
-  return agrid
-end
-
-function gridsearch(cRange, gRange, nr_fold)
-
-  pgrid = Array(Float64, length(cRange), length(gRange))
-
-  for (ic, c) in enumerate(cRange)
-    for (ig, g) in enumerate(gRange)
-
-
-      prob = readdlm("heart_scale", SVMproblem)
-      init_struct!(prob)
-
-      param = SVMparameter()
-      param.C = c
-      param.gamma = g
-      init_struct!(param)
-
-      target = svm_cross_validation(prob, param, nr_fold)
-
-      total_correct = 0
-      for i=1:prob.l
-	      if target[i] == prob.y[i]
-		      total_correct += 1
-        end
-      end
-
-      pgrid[ic, ig] = 100 * total_correct / prob.l
-
-      free_struct!(prob)
-      free_struct!(param)
-    end
-  end
-
-  return pgrid
-
-end
 
 
 ####################### IO FUNCTIONS #############################
