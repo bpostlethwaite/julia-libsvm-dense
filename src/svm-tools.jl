@@ -1,3 +1,6 @@
+include("libsvm-dense.jl")
+
+using LibSVM_dense
 using Winston
 
 function cross_validation_gridsearch(nr_fold::Int)
@@ -127,4 +130,65 @@ function parallel_gridsearch(nr_fold::Int,
   end
 
   return agrid
+end
+
+immutable Scale
+  a::Float64
+  b::Float64
+  min::Float64
+  max::Float64
+  fx::Function
+end
+
+Scale(a::Float64, b::Float64, mn::Float64,
+      mx::Float64) = Scaling(a, b, mn, mx,
+                             x -> (b - a) * (x - mn) / (mx - mn) + a)
+Scale(mn::Float64,
+      mx::Float64) = Scaling(-1.0, 1.0, mn, mx,
+                             x -> (b - a) * (x - mn) / (mx - mn) + a)
+
+
+function svm_scale!(prob::SVMproblem)
+
+  # Get max and min for each set of features
+  mns = prob.x[1].values
+  mxs = prob.x[1].values
+
+
+  for node in prob.x
+    imin = node.values .< minvals
+    mns[imin] = node.values[imin]
+    imax = node.values .> maxvals
+    mxs[imax] = node.values[imax]
+  end
+
+  # Array of scale types, one for each attribute set
+  scales = [Scale(mns[i], mxs[i]) for i = 1:length(maxvals)]
+  # scaler(minvals[i], maxvals[i])
+  # Apply scaling functions to each attribute value
+  for node in prob.x
+    svm_scale!(node, scales)
+  end
+
+  return scales
+
+end
+
+
+function svm_scale!(prob::SVMproblem, scales::Array{Scale})
+  for node in prob.x
+    svm_scale!(node, scales)
+  end
+end
+
+function svm_scale!(node::SVMnode, scales::Array{Scale})
+
+  if length(scales) != length(node.values)
+    error("Number of scaling factors does not match SVMnode values!")
+  end
+
+  for i = 1:node.dim
+    node.values[i] = scales[i].fx(node.values[i])
+  end
+
 end
