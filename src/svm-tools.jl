@@ -1,7 +1,12 @@
-include("libsvm-dense.jl")
+require("libsvm-dense.jl")
+require("gridsearch")
 
 using LibSVM_dense
 using Winston
+
+
+function predict_test_data(model::SVMmodel, test::SVMproblem)
+
 
 function cross_validation_gridsearch(nr_fold::Int)
   foundMax = false
@@ -92,8 +97,6 @@ function parallel_gridsearch(nr_fold::Int,
                              gRange::Vector{Float64})
 
 # Perform Roving Multi-scale Gridsearch over CRange and gammaRange using cross-validation
-
-  require("gridsearch")
 
   nr_fold = convert(Cint, nr_fold)
 
