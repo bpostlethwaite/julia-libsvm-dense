@@ -10,13 +10,30 @@ extern "C" {
 #define Malloc(type,n) (type *)malloc((n)*sizeof(type))
 
   /*
-   * Allocates resources to the svm_problem struct.
+   * Allocates resources to the svm_node and other structs.
    * Once Julia support passing of structs, move this
    * Into Julia. Remember, we will need to hold references
    * of structs in an array while they are in C, on say
    * a function return in Julia so they don't get eaten by GC
    */
-struct svm_problem *constructProblem(double *y, int ndata, double **x, int nvals) {
+struct svm_node *initNode(double *x, int dim) {
+  int i;
+  struct svm_node *node;
+
+  node = Malloc(struct svm_node, 1);
+
+  node->dim = dim;
+  node->values = Malloc(double, dim);
+
+  for(i=0; i < dim; i++)
+    node->values[i] = x[i];
+
+  return node;
+
+}
+
+
+struct svm_problem *initProblem(double *y, int ndata, double **x, int nvals) {
   int i, j;
   struct svm_problem *prob;
 
@@ -42,39 +59,8 @@ struct svm_problem *constructProblem(double *y, int ndata, double **x, int nvals
 
 }
 
-void freeProblem(struct svm_problem *prob) {
-  int i;
-  free(prob->y);
-  for (i = 0; i < prob->l; i++)
-    free((prob->x+i)->values);
 
-  free(prob->x);
-
-}
-
-void printProblem(struct svm_problem *prob) {
-
-  int i, j;
-  int dim = prob->x[1].dim;
-
-  printf("\n\n%i\n", prob->l);
-
-  for (i = 0; i < prob->l; i++) {
-    printf("---- node %i ----\n", i);
-
-    printf("%1.0f :: ", prob->y[i]);
-    /* printf("%2.2f ", prob->x[i].values[1]); */
-    /* printf("%i", prob->x[i].dim); */
-    for (j = 0; j < dim; j++) {
-      printf("%2.2f ", prob->x[i].values[j]);
-    }
-
-    printf("\n");
-  }
-
-}
-
-struct svm_parameter *constructParameter(int *ints, double *floats) {
+struct svm_parameter *initParameter(int *ints, double *floats) {
 
   struct svm_parameter *param;
 
@@ -102,6 +88,44 @@ struct svm_parameter *constructParameter(int *ints, double *floats) {
 
 }
 
+void freeProblem(struct svm_problem *prob) {
+  int i;
+  free(prob->y);
+  for (i = 0; i < prob->l; i++)
+    free((prob->x+i)->values);
+
+  free(prob->x);
+  free(prob);
+}
+
+void freeNode(struct svm_node *node) {
+
+  free(node->values);
+  free(node);
+
+}
+
+
+void printProblem(struct svm_problem *prob) {
+
+  int i, j;
+  int dim = prob->x[1].dim;
+
+  printf("\n\n%i\n", prob->l);
+
+  for (i = 0; i < prob->l; i++) {
+    printf("---- node %i ----\n", i);
+
+    printf("%1.0f :: ", prob->y[i]);
+
+    for (j = 0; j < dim; j++) {
+      printf("%2.2f ", prob->x[i].values[j]);
+    }
+
+    printf("\n");
+  }
+
+}
 
 void printParameter(struct svm_parameter *param) {
 

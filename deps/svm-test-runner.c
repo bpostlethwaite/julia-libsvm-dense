@@ -34,7 +34,7 @@ int main() {
     }
   }
 
-  prob = constructProblem(y, ndata, x, nvals );
+  prob = initProblem(y, ndata, x, nvals );
 
   printProblem(prob);
 

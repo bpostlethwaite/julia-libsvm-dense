@@ -1,16 +1,46 @@
-require("libsvm-dense.jl")
-require("gridsearch")
 
-using LibSVM_dense
-using Winston
+export predict_test_data,
+       cross_validation_gridsearch,
+       svm_scale!,
+       readsvm
+
+
 
 
 function predict_test_data(model::SVMmodel, test::SVMproblem)
 
+  preds = Array(Float64, test.l)
 
-function cross_validation_gridsearch(nr_fold::Int)
+  for (i, node) in enumerate(test.x)
+    init_struct!(node)
+    preds[i] = svm_predict(model, node)
+    free_struct!(node)
+  end
+
+  correct = sum( test.y .== preds )
+  @printf("Accuracy = %2.2f%% (%d/%d) (classification)\n",
+			    correct/test.l*100.0,correct, test.l)
+
+
+  return preds
+
+end
+
+if myid() == 1
+  println("requiring")
+
+end
+
+println(myid())
+require("/home/bpostlet/programming/julia/libsvm-dense/src/gridsearch.jl")
+
+function cross_validation_gridsearch(datafile::ASCIIString)
+
+  println(myid())
+
   foundMax = false
   maxIter = 4
+  nr_fold = 5
   gexp = -15:1:3
   cexp = -5:1:15
 
@@ -23,7 +53,7 @@ function cross_validation_gridsearch(nr_fold::Int)
   while !foundMax
 
     tic()
-    agrid = parallel_gridsearch(nr_fold, cRange, gammaRange)
+    agrid = parallel_gridsearch(datafile, nr_fold, cRange, gammaRange)
     toc()
 
     imagesc( (gammaRange[1], gammaRange[end]),
@@ -72,7 +102,7 @@ function cross_validation_gridsearch(nr_fold::Int)
   gammaRange = linspace(gammaRange[gind - 1], gammaRange[gind + 1], 10)
   cRange = linspace(cRange[cind - 1], cRange[cind + 1], 10)
 
-  agrid = parallel_gridsearch(nr_fold, cRange, gammaRange)
+  agrid = parallel_gridsearch(datafile, nr_fold, cRange, gammaRange)
 
   imagesc( (gammaRange[1], gammaRange[end]),
           (cRange[1], cRange[end]),
@@ -92,7 +122,9 @@ function cross_validation_gridsearch(nr_fold::Int)
 
 end
 
-function parallel_gridsearch(nr_fold::Int,
+
+function parallel_gridsearch(datafile::ASCIIString,
+                             nr_fold::Int,
                              cRange::Vector{Float64},
                              gRange::Vector{Float64})
 
@@ -123,8 +155,12 @@ function parallel_gridsearch(nr_fold::Int,
   end
 
   # Perform parallized gridsearch
+
+
+
   for i = 1:np
-    refs[i] = @spawn gridsearch(cRange, gRange[gi[i,1] : gi[i,2]], nr_fold)
+    #refs[i] = remotecall(i, gridsearch, datafile, cRange, gRange[gi[i,1] : gi[i,2]], nr_fold)
+    refs[i] = @spawnat i gridsearch(datafile, cRange, gRange[gi[i,1] : gi[i,2]], nr_fold)
   end
 
   for i = 1:np
@@ -135,6 +171,9 @@ function parallel_gridsearch(nr_fold::Int,
   return agrid
 end
 
+
+
+
 immutable Scale
   a::Float64
   b::Float64
@@ -144,29 +183,28 @@ immutable Scale
 end
 
 Scale(a::Float64, b::Float64, mn::Float64,
-      mx::Float64) = Scaling(a, b, mn, mx,
+      mx::Float64) = Scale(a, b, mn, mx,
                              x -> (b - a) * (x - mn) / (mx - mn) + a)
 Scale(mn::Float64,
-      mx::Float64) = Scaling(-1.0, 1.0, mn, mx,
-                             x -> (b - a) * (x - mn) / (mx - mn) + a)
+      mx::Float64) = Scale(-1.0, 1.0, mn, mx,
+                             x -> 2 * (x - mn) / (mx - mn) - 1)
 
 
 function svm_scale!(prob::SVMproblem)
 
   # Get max and min for each set of features
-  mns = prob.x[1].values
-  mxs = prob.x[1].values
-
+  mns = deepcopy(prob.x[1].values)
+  mxs = deepcopy(prob.x[1].values)
 
   for node in prob.x
-    imin = node.values .< minvals
+    imin = node.values .< mns
     mns[imin] = node.values[imin]
-    imax = node.values .> maxvals
+    imax = node.values .> mxs
     mxs[imax] = node.values[imax]
   end
 
   # Array of scale types, one for each attribute set
-  scales = [Scale(mns[i], mxs[i]) for i = 1:length(maxvals)]
+  scales = [Scale(mns[i], mxs[i]) for i = 1:length(mxs)]
   # scaler(minvals[i], maxvals[i])
   # Apply scaling functions to each attribute value
   for node in prob.x
@@ -195,3 +233,74 @@ function svm_scale!(node::SVMnode, scales::Array{Scale})
   end
 
 end
+
+####################### IO FUNCTIONS #############################
+
+
+function readsvm(source, SVMproblem)
+
+  fstream = open(source, "r")
+  chunk = readall(fstream)
+  close(fstream)
+
+  lines = split(strip(chunk), "\n")
+
+  # Strip out short lines
+  ll = map((x) -> length(x) > 4, lines)
+  lines = lines[ll]
+
+  ndata = length(lines)
+
+  temp = cell(ndata)
+
+  y = Array(Float64, ndata)
+  x = Array(SVMnode, ndata)
+
+  # First we need to get the max index from all the rows
+  # May as well save some of the parsed text
+  maxIndex = 0
+  for i = 1:ndata
+    fields = split(strip(lines[i]), " ")
+    y[i] = float64(fields[1])
+    fields = map( (x) -> split(x, ":"), fields[2:end])
+    temp[i] = map( (x) -> (int64(x[1]), float64(x[2])), fields)
+    maxIndex = max(temp[i][end][1], maxIndex)
+  end
+
+  #maxIndex += 1 # Accounting for zero based C
+
+  # Now lets loop through the saved text and fill
+  # in the right values for the given indexes
+  # and assign to SVMnode
+  for i = 1:ndata
+    data = zeros(Float64, maxIndex)
+    inds = map( (x) -> x[1], temp[i] )
+    #inds += 1
+    vals = map( (x) -> x[2], temp[i] )
+    data[inds] = vals
+    x[i] = SVMnode(maxIndex, data)
+  end
+
+  prob = SVMproblem(ndata, y, x)
+
+
+end
+
+
+
+
+
+
+
+
+function writesvm(source, SVMproblem)
+
+  fstream = open(source, "w")
+
+  close(fstream)
+
+end
+
+
+
+

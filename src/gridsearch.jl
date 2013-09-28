@@ -1,12 +1,4 @@
-# if myid() != 1
-
-#   include("libsvm-dense.jl")
-
-#   using LibSVM_dense
-
-# end
-
-function gridsearch(cRange, gRange, nr_fold)
+function gridsearch(datafile, cRange, gRange, nr_fold)
 
   pgrid = Array(Float64, length(cRange), length(gRange))
 
@@ -14,7 +6,7 @@ function gridsearch(cRange, gRange, nr_fold)
     for (ig, g) in enumerate(gRange)
 
 
-      prob = readdlm("heart_scale", SVMproblem)
+      prob = readsvm(datafile, SVMproblem)
       init_struct!(prob)
 
       param = SVMparameter()
@@ -39,5 +31,13 @@ function gridsearch(cRange, gRange, nr_fold)
   end
 
   return pgrid
+
+end
+
+if myid() != 1
+
+  include("LibsvmDense.jl")
+
+  using LibsvmDense
 
 end
